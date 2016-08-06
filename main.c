@@ -6,9 +6,15 @@
 #include <math.h> // modf
 #include <time.h> // clock_gettime
 
-
-
 #define FOROPS X(POST) X(WAIT) X(UNLINK)
+/* sem_getvalue shouldn't really be supported
+	 since its value might change before the function even returns
+	 so it can lead to race conditions if people go VAL=$(semtool derp GET)
+
+	 sem_close isn't needed, since it's closed on process exit.
+
+	 sem_init/sem_destroy are for unnamed semaphores, so pretty useless here.
+*/
 
 enum op { 
 	#define X(op) op,
@@ -45,8 +51,7 @@ enum deaths {
 	DIE_USAGE
 };
 	
-
-void process_WAIT(const char* name) {
+sem_t* sem_openze(const char*name) {
 	unsigned int initial_value = 0;
 	const char* val = getenv("initial");
 	char* err = NULL;
@@ -57,7 +62,12 @@ void process_WAIT(const char* name) {
 	sem_t* sem = sem_open(name, O_CREAT, 0600, initial_value);
 	if(sem == SEM_FAILED)
 		die(DIE_OPEN,"sem_open failed for %s",name);
-	val = getenv("timeout");
+	return sem;
+}
+
+void process_WAIT(const char* name) {
+	sem_t* sem = sem_openze(name);
+	const char* val = getenv("timeout");
 	int res;
 	if(val == NULL) {
 		res = sem_wait(sem);
@@ -76,9 +86,7 @@ void process_WAIT(const char* name) {
 }
 
 void process_POST(const char* name) {
-	sem_t* sem = sem_open(name, 0);
-	if(sem == SEM_FAILED)
-		die(DIE_OPEN,"sem_open failed for %s",name);
+	sem_t* sem = sem_openze(name);
 
 	if(0 != sem_post(sem))
 		die(DIE_POST,"sem_post failed for %s",name);
