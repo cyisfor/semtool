@@ -68,6 +68,7 @@ sem_t* sem_openze(const char*name) {
 void process_WAIT(const char* name) {
 	sem_t* sem = sem_openze(name);
 	const char* val = getenv("timeout");
+	char* err = NULL;
 	int res;
 	if(val == NULL) {
 		res = sem_wait(sem);
